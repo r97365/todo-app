@@ -39,9 +39,14 @@
     #addBtn{width:46px;border:none;border-radius:14px;background:var(--accent);color:var(--bg);font-size:24px;font-weight:700}
     .hint{font-size:12px;color:var(--muted);margin:9px 2px 1px}
     .section{margin:24px 0}
-    .sectionHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding:0 2px}
+    .sectionHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding:6px 2px;cursor:pointer;user-select:none}
     .sectionTitle{font-size:19px;font-weight:800}
+    .sectionMeta{display:flex;align-items:center;gap:8px}
     .count{font-size:12px;color:var(--muted);background:var(--panel);padding:4px 8px;border-radius:99px}
+    .chevron{width:24px;height:24px;display:grid;place-items:center;color:var(--muted);font-size:18px;transition:transform .18s ease}
+    .section.collapsed .chevron{transform:rotate(-90deg)}
+    .section.collapsed .sectionHead{margin-bottom:0}
+    .section.collapsed .tasks{display:none}
     .tasks{display:flex;flex-direction:column;gap:8px}
     .task{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 12px}
     .check{width:26px;height:26px;border:2px solid var(--muted);border-radius:50%;flex:0 0 auto;background:transparent;display:grid;place-items:center;color:var(--bg);font-weight:900}
@@ -124,6 +129,8 @@ let categories = JSON.parse(localStorage.getItem("todo_categories") || "null") |
 let tasks = JSON.parse(localStorage.getItem("todo_tasks") || "null") || DEFAULT_TASKS.slice();
 let filter = "open";
 let editingId = null;
+let selectedCategory = localStorage.getItem("todo_selected_category") || categories[0] || "";
+let collapsedCategories = new Set(JSON.parse(localStorage.getItem("todo_collapsed_categories") || "[]"));
 const $ = s => document.querySelector(s);
 const sections = $("#sections");
 const taskInput = $("#taskInput");
@@ -133,6 +140,8 @@ const settingsDialog = $("#settingsDialog");
 function save(){
   localStorage.setItem("todo_categories", JSON.stringify(categories));
   localStorage.setItem("todo_tasks", JSON.stringify(tasks));
+  localStorage.setItem("todo_selected_category", selectedCategory);
+  localStorage.setItem("todo_collapsed_categories", JSON.stringify([...collapsedCategories]));
 }
 function esc(s){
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
@@ -141,6 +150,11 @@ function fillCategories(){
   const opts = categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
   categorySelect.innerHTML = opts;
   $("#editCategory").innerHTML = opts;
+
+  if(!categories.includes(selectedCategory)){
+    selectedCategory = categories[0] || "";
+  }
+  categorySelect.value = selectedCategory;
 }
 function visible(t){
   if(filter==="open") return !t.done;
@@ -154,13 +168,31 @@ function render(){
     const list = tasks.filter(t=>t.category===category && visible(t)).sort((a,b)=>a.created-b.created);
     if(list.length===0 && filter!=="all") continue;
     const section = document.createElement("section");
-    section.className = "section";
+    const isCollapsed = collapsedCategories.has(category);
+    section.className = "section" + (isCollapsed ? " collapsed" : "");
     section.innerHTML = `
-      <div class="sectionHead">
+      <div class="sectionHead" role="button" tabindex="0" aria-expanded="${!isCollapsed}">
         <div class="sectionTitle">${esc(category)}</div>
-        <div class="count">${list.length}</div>
+        <div class="sectionMeta">
+          <div class="count">${list.length}</div>
+          <div class="chevron" aria-hidden="true">⌄</div>
+        </div>
       </div>
       <div class="tasks"></div>`;
+    const head = section.querySelector(".sectionHead");
+    const toggleSection = () => {
+      if(collapsedCategories.has(category)) collapsedCategories.delete(category);
+      else collapsedCategories.add(category);
+      save();
+      render();
+    };
+    head.onclick = toggleSection;
+    head.onkeydown = e => {
+      if(e.key === "Enter" || e.key === " "){
+        e.preventDefault();
+        toggleSection();
+      }
+    };
     const holder = section.querySelector(".tasks");
     if(list.length===0){
       holder.innerHTML = `<div class="empty">目前沒有項目</div>`;
@@ -187,7 +219,8 @@ function render(){
 function addTask(){
   const text = taskInput.value.trim();
   if(!text) return;
-  const category = categorySelect.value || categories[0];
+  const category = categorySelect.value || selectedCategory || categories[0];
+  selectedCategory = category;
   tasks.push({id: crypto.randomUUID(), text, category, done:false, created:Date.now()});
   taskInput.value = "";
   save(); render(); taskInput.focus();
@@ -201,6 +234,10 @@ function openEdit(id){
   editDialog.showModal();
 }
 $("#addBtn").onclick = addTask;
+categorySelect.addEventListener("change", () => {
+  selectedCategory = categorySelect.value;
+  save();
+});
 taskInput.addEventListener("keydown", e => { if(e.key==="Enter") addTask(); });
 document.querySelectorAll("[data-filter]").forEach(b=>{
   b.onclick = ()=>{
@@ -234,6 +271,8 @@ $("#resetBtn").onclick = ()=>{
   if(confirm("要清除全部待辦並恢復預設分類嗎？這個動作無法復原。")){
     categories = DEFAULT_CATEGORIES.slice();
     tasks = [];
+    selectedCategory = categories[0] || "";
+    collapsedCategories = new Set();
     save(); render(); settingsDialog.close();
   }
 };
