@@ -1,5 +1,5 @@
-const CACHE = 'todo-app-v1';
-const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
+const CACHE = 'todo-app-v2';
+const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './apple-touch-icon.png?v=2'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
   self.skipWaiting();
