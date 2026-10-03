@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111214" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="待辦" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <title>待辦事項</title>
+  <style>
+    :root{
+      --bg:#0f1012; --panel:#17181b; --panel2:#1e2024; --text:#f5f7fa;
+      --muted:#9ca3af; --line:#2a2d33; --accent:#ffffff; --danger:#ff5d5d;
+      --shadow:0 12px 30px rgba(0,0,0,.24);
+    }
+    @media (prefers-color-scheme: light){
+      :root{
+        --bg:#f4f5f7; --panel:#ffffff; --panel2:#f2f3f5; --text:#16181c;
+        --muted:#6b7280; --line:#e4e7eb; --accent:#111827; --danger:#d9363e;
+        --shadow:0 10px 28px rgba(0,0,0,.08);
+      }
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC","Noto Sans TC",sans-serif}
+    body{min-height:100vh}
+    button,input,select{font:inherit}
+    .app{max-width:680px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 22px) 18px calc(env(safe-area-inset-bottom) + 40px)}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:34px;letter-spacing:-.8px;margin:0;font-weight:800}
+    .sub{font-size:13px;color:var(--muted);margin-top:4px}
+    .iconBtn{width:42px;height:42px;border:none;border-radius:14px;background:var(--panel);color:var(--text);font-size:24px;box-shadow:var(--shadow)}
+    .composer{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:12px;box-shadow:var(--shadow);margin-bottom:22px}
+    .row{display:flex;gap:9px}
+    #taskInput{flex:1;min-width:0;border:none;outline:none;background:var(--panel2);color:var(--text);padding:13px 14px;border-radius:14px}
+    #categorySelect{border:none;outline:none;background:var(--panel2);color:var(--text);padding:0 10px;border-radius:14px;max-width:128px}
+    #addBtn{width:46px;border:none;border-radius:14px;background:var(--accent);color:var(--bg);font-size:24px;font-weight:700}
+    .hint{font-size:12px;color:var(--muted);margin:9px 2px 1px}
+    .section{margin:24px 0}
+    .sectionHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding:0 2px}
+    .sectionTitle{font-size:19px;font-weight:800}
+    .count{font-size:12px;color:var(--muted);background:var(--panel);padding:4px 8px;border-radius:99px}
+    .tasks{display:flex;flex-direction:column;gap:8px}
+    .task{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 12px}
+    .check{width:26px;height:26px;border:2px solid var(--muted);border-radius:50%;flex:0 0 auto;background:transparent;display:grid;place-items:center;color:var(--bg);font-weight:900}
+    .task.done .check{background:var(--accent);border-color:var(--accent)}
+    .task.done .check::after{content:"✓";font-size:16px}
+    .taskText{flex:1;font-size:17px;line-height:1.35;word-break:break-word}
+    .task.done .taskText{text-decoration:line-through;color:var(--muted)}
+    .more{border:none;background:transparent;color:var(--muted);font-size:21px;padding:5px 6px}
+    .empty{color:var(--muted);font-size:14px;padding:6px 3px}
+    .bottomBar{position:sticky;bottom:calc(env(safe-area-inset-bottom) + 12px);margin-top:26px;display:flex;justify-content:center}
+    .pill{display:flex;background:rgba(28,30,34,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:999px;padding:6px;box-shadow:var(--shadow)}
+    @media (prefers-color-scheme: light){.pill{background:rgba(255,255,255,.92)}}
+    .pill button{border:none;background:transparent;color:var(--muted);padding:9px 14px;border-radius:999px}
+    .pill button.active{background:var(--panel2);color:var(--text);font-weight:700}
+    dialog{border:none;border-radius:22px;background:var(--panel);color:var(--text);width:min(92vw,420px);padding:0;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+    dialog::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(3px)}
+    .dialogBody{padding:18px}
+    .dialogTitle{font-size:20px;font-weight:800;margin-bottom:14px}
+    .dialogBody input,.dialogBody select{width:100%;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:13px;border-radius:13px;margin-bottom:10px;outline:none}
+    .dialogActions{display:flex;gap:8px;margin-top:8px}
+    .dialogActions button{flex:1;border:none;padding:12px;border-radius:13px;background:var(--panel2);color:var(--text)}
+    .dialogActions .primary{background:var(--accent);color:var(--bg);font-weight:700}
+    .danger{color:var(--danger)!important}
+    .catManage{font-size:13px;color:var(--muted);background:none;border:none;padding:0;margin-top:10px}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="top">
+      <div>
+        <h1>待辦事項</h1>
+        <div class="sub" id="dateText"></div>
+      </div>
+      <button class="iconBtn" id="settingsBtn" aria-label="設定">⋯</button>
+    </div>
+
+    <section class="composer">
+      <div class="row">
+        <input id="taskInput" placeholder="新增一件事…" autocomplete="off" />
+        <select id="categorySelect"></select>
+        <button id="addBtn" aria-label="新增">＋</button>
+      </div>
+      <div class="hint">不用排時間。想到就記，做完就勾。</div>
+    </section>
+
+    <div id="sections"></div>
+
+    <div class="bottomBar">
+      <div class="pill">
+        <button data-filter="open" class="active">待辦</button>
+        <button data-filter="all">全部</button>
+        <button data-filter="done">已完成</button>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="editDialog">
+    <div class="dialogBody">
+      <div class="dialogTitle">編輯待辦</div>
+      <input id="editText" />
+      <select id="editCategory"></select>
+      <div class="dialogActions">
+        <button class="danger" id="deleteBtn">刪除</button>
+        <button id="cancelBtn">取消</button>
+        <button class="primary" id="saveBtn">儲存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <div class="dialogBody">
+      <div class="dialogTitle">分類</div>
+      <input id="newCategory" placeholder="新增分類，例如：工作" />
+      <div class="dialogActions">
+        <button id="closeSettings">關閉</button>
+        <button class="primary" id="addCategoryBtn">新增分類</button>
+      </div>
+      <button class="catManage" id="resetBtn">清除全部資料</button>
+    </div>
+  </dialog>
+
+<script>
+const DEFAULT_CATEGORIES = ["回台南","高雄","研究","有空做","購物清單"];
+const DEFAULT_TASKS = [];
+
+let categories = JSON.parse(localStorage.getItem("todo_categories") || "null") || DEFAULT_CATEGORIES.slice();
+let tasks = JSON.parse(localStorage.getItem("todo_tasks") || "null") || DEFAULT_TASKS.slice();
+let filter = "open";
+let editingId = null;
+
+const $ = s => document.querySelector(s);
+const sections = $("#sections");
+const taskInput = $("#taskInput");
+const categorySelect = $("#categorySelect");
+const editDialog = $("#editDialog");
+const settingsDialog = $("#settingsDialog");
+
+function save(){
+  localStorage.setItem("todo_categories", JSON.stringify(categories));
+  localStorage.setItem("todo_tasks", JSON.stringify(tasks));
+}
+function esc(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+function fillCategories(){
+  const opts = categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  categorySelect.innerHTML = opts;
+  $("#editCategory").innerHTML = opts;
+}
+function visible(t){
+  if(filter==="open") return !t.done;
+  if(filter==="done") return t.done;
+  return true;
+}
+function render(){
+  fillCategories();
+  sections.innerHTML = "";
+  for(const category of categories){
+    const list = tasks.filter(t=>t.category===category && visible(t)).sort((a,b)=>a.created-b.created);
+    if(list.length===0 && filter!=="all") continue;
+
+    const section = document.createElement("section");
+    section.className = "section";
+    section.innerHTML = `
+      <div class="sectionHead">
+        <div class="sectionTitle">${esc(category)}</div>
+        <div class="count">${list.length}</div>
+      </div>
+      <div class="tasks"></div>`;
+    const holder = section.querySelector(".tasks");
+
+    if(list.length===0){
+      holder.innerHTML = `<div class="empty">目前沒有項目</div>`;
+    } else {
+      for(const t of list){
+        const el = document.createElement("div");
+        el.className = "task" + (t.done ? " done" : "");
+        el.innerHTML = `
+          <button class="check" aria-label="完成"></button>
+          <div class="taskText">${esc(t.text)}</div>
+          <button class="more" aria-label="編輯">•••</button>`;
+        el.querySelector(".check").onclick = () => { t.done = !t.done; save(); render(); };
+        el.querySelector(".taskText").onclick = () => openEdit(t.id);
+        el.querySelector(".more").onclick = () => openEdit(t.id);
+        holder.appendChild(el);
+      }
+    }
+    sections.appendChild(section);
+  }
+
+  if(sections.children.length===0){
+    sections.innerHTML = `<div class="empty" style="padding:24px 4px">這裡目前是空的。</div>`;
+  }
+}
+function addTask(){
+  const text = taskInput.value.trim();
+  if(!text) return;
+  const category = categorySelect.value || categories[0];
+  tasks.push({id: crypto.randomUUID(), text, category, done:false, created:Date.now()});
+  taskInput.value = "";
+  save(); render(); taskInput.focus();
+}
+function openEdit(id){
+  editingId = id;
+  const t = tasks.find(x=>x.id===id);
+  if(!t) return;
+  $("#editText").value = t.text;
+  $("#editCategory").value = t.category;
+  editDialog.showModal();
+}
+$("#addBtn").onclick = addTask;
+taskInput.addEventListener("keydown", e => { if(e.key==="Enter") addTask(); });
+
+document.querySelectorAll("[data-filter]").forEach(b=>{
+  b.onclick = ()=>{
+    filter = b.dataset.filter;
+    document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active", x===b));
+    render();
+  }
+});
+$("#cancelBtn").onclick = ()=>editDialog.close();
+$("#saveBtn").onclick = ()=>{
+  const t = tasks.find(x=>x.id===editingId);
+  if(!t) return editDialog.close();
+  const txt = $("#editText").value.trim();
+  if(txt) t.text = txt;
+  t.category = $("#editCategory").value;
+  save(); render(); editDialog.close();
+};
+$("#deleteBtn").onclick = ()=>{
+  tasks = tasks.filter(x=>x.id!==editingId);
+  save(); render(); editDialog.close();
+};
+$("#settingsBtn").onclick = ()=>settingsDialog.showModal();
+$("#closeSettings").onclick = ()=>settingsDialog.close();
+$("#addCategoryBtn").onclick = ()=>{
+  const name = $("#newCategory").value.trim();
+  if(name && !categories.includes(name)){
+    categories.push(name); $("#newCategory").value=""; save(); render();
+  }
+};
+$("#resetBtn").onclick = ()=>{
+  if(confirm("要清除全部待辦並恢復預設分類嗎？這個動作無法復原。")){
+    categories = DEFAULT_CATEGORIES.slice();
+    tasks = [];
+    save(); render(); settingsDialog.close();
+  }
+};
+
+$("#dateText").textContent = new Intl.DateTimeFormat("zh-TW",{year:"numeric",month:"long",day:"numeric",weekday:"short"}).format(new Date());
+render();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
