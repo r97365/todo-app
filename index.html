@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="待辦" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2" />
   <title>待辦事項</title>
   <style>
     :root{
@@ -77,7 +77,6 @@
       </div>
       <button class="iconBtn" id="settingsBtn" aria-label="設定">⋯</button>
     </div>
-
     <section class="composer">
       <div class="row">
         <input id="taskInput" placeholder="新增一件事…" autocomplete="off" />
@@ -86,9 +85,7 @@
       </div>
       <div class="hint">不用排時間。想到就記，做完就勾。</div>
     </section>
-
     <div id="sections"></div>
-
     <div class="bottomBar">
       <div class="pill">
         <button data-filter="open" class="active">待辦</button>
@@ -97,7 +94,6 @@
       </div>
     </div>
   </main>
-
   <dialog id="editDialog">
     <div class="dialogBody">
       <div class="dialogTitle">編輯待辦</div>
@@ -110,7 +106,6 @@
       </div>
     </div>
   </dialog>
-
   <dialog id="settingsDialog">
     <div class="dialogBody">
       <div class="dialogTitle">分類</div>
@@ -122,23 +117,19 @@
       <button class="catManage" id="resetBtn">清除全部資料</button>
     </div>
   </dialog>
-
 <script>
 const DEFAULT_CATEGORIES = ["回台南","高雄","研究","有空做","購物清單"];
 const DEFAULT_TASKS = [];
-
 let categories = JSON.parse(localStorage.getItem("todo_categories") || "null") || DEFAULT_CATEGORIES.slice();
 let tasks = JSON.parse(localStorage.getItem("todo_tasks") || "null") || DEFAULT_TASKS.slice();
 let filter = "open";
 let editingId = null;
-
 const $ = s => document.querySelector(s);
 const sections = $("#sections");
 const taskInput = $("#taskInput");
 const categorySelect = $("#categorySelect");
 const editDialog = $("#editDialog");
 const settingsDialog = $("#settingsDialog");
-
 function save(){
   localStorage.setItem("todo_categories", JSON.stringify(categories));
   localStorage.setItem("todo_tasks", JSON.stringify(tasks));
@@ -162,7 +153,6 @@ function render(){
   for(const category of categories){
     const list = tasks.filter(t=>t.category===category && visible(t)).sort((a,b)=>a.created-b.created);
     if(list.length===0 && filter!=="all") continue;
-
     const section = document.createElement("section");
     section.className = "section";
     section.innerHTML = `
@@ -172,7 +162,6 @@ function render(){
       </div>
       <div class="tasks"></div>`;
     const holder = section.querySelector(".tasks");
-
     if(list.length===0){
       holder.innerHTML = `<div class="empty">目前沒有項目</div>`;
     } else {
@@ -191,7 +180,6 @@ function render(){
     }
     sections.appendChild(section);
   }
-
   if(sections.children.length===0){
     sections.innerHTML = `<div class="empty" style="padding:24px 4px">這裡目前是空的。</div>`;
   }
@@ -214,7 +202,6 @@ function openEdit(id){
 }
 $("#addBtn").onclick = addTask;
 taskInput.addEventListener("keydown", e => { if(e.key==="Enter") addTask(); });
-
 document.querySelectorAll("[data-filter]").forEach(b=>{
   b.onclick = ()=>{
     filter = b.dataset.filter;
@@ -250,10 +237,8 @@ $("#resetBtn").onclick = ()=>{
     save(); render(); settingsDialog.close();
   }
 };
-
 $("#dateText").textContent = new Intl.DateTimeFormat("zh-TW",{year:"numeric",month:"long",day:"numeric",weekday:"short"}).format(new Date());
 render();
-
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
 }
