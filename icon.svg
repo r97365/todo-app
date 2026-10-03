@@ -1,9 +1,78 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<rect width="512" height="512" rx="112" fill="#0f1012"/>
-<rect x="100" y="92" width="312" height="328" rx="64" fill="#f5f7fa"/>
-<g fill="none" stroke="#0f1012" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
-<circle cx="166" cy="180" r="20"/><path d="M154 180l9 9 20-25"/>
-<line x1="220" y1="180" x2="340" y2="180"/>
-<circle cx="166" cy="256" r="20"/><line x1="220" y1="256" x2="340" y2="256"/>
-<circle cx="166" cy="332" r="20"/><line x1="220" y1="332" x2="340" y2="332"/>
-</g></svg>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2a3039"/>
+      <stop offset="55%" stop-color="#171b21"/>
+      <stop offset="100%" stop-color="#0b0d10"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="70%" stop-color="#f6f7f9"/>
+      <stop offset="100%" stop-color="#e9edf2"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#cfd6df"/>
+    </linearGradient>
+    <linearGradient id="darkDot" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2d333d"/>
+      <stop offset="100%" stop-color="#0d1015"/>
+    </linearGradient>
+    <linearGradient id="muted" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#aeb6c1"/>
+      <stop offset="100%" stop-color="#c5ccd5"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity=".34"/>
+    </filter>
+    <filter id="smallShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity=".28"/>
+    </filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="106" fill="url(#bg)"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="104.5" fill="none" stroke="#424a55" stroke-opacity=".45"/>
+
+  <g filter="url(#softShadow)">
+    <path d="M134 116
+             Q134 88 162 88
+             H322
+             Q337 88 347 98
+             L388 139
+             Q400 151 400 168
+             V388
+             Q400 420 368 420
+             H164
+             Q132 420 132 388
+             V148
+             Q132 116 134 116Z"
+          fill="url(#paper)"/>
+    <path d="M322 88
+             Q340 88 352 100
+             L388 136
+             Q398 146 399 162
+             H356
+             Q322 162 322 128Z"
+          fill="url(#fold)"/>
+    <path d="M322 128 Q322 162 356 162 H399"
+          fill="none" stroke="#c7ced8" stroke-width="2" opacity=".45"/>
+  </g>
+
+  <g filter="url(#smallShadow)">
+    <circle cx="190" cy="188" r="34" fill="url(#darkDot)"/>
+    <circle cx="190" cy="268" r="34" fill="url(#darkDot)"/>
+  </g>
+
+  <circle cx="190" cy="348" r="33" fill="#d7dce3"/>
+
+  <g fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M177 188 l9 9 19 -23"/>
+    <path d="M177 268 l9 9 19 -23"/>
+  </g>
+
+  <g fill="url(#muted)">
+    <rect x="246" y="176" width="108" height="20" rx="10"/>
+    <rect x="246" y="256" width="100" height="20" rx="10"/>
+    <rect x="246" y="336" width="112" height="20" rx="10"/>
+  </g>
+</svg>
