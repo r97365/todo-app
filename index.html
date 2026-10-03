@@ -39,7 +39,8 @@
     #addBtn{width:46px;border:none;border-radius:14px;background:var(--accent);color:var(--bg);font-size:24px;font-weight:700}
     .hint{font-size:12px;color:var(--muted);margin:9px 2px 1px}
     .section{margin:24px 0}
-    .sectionHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding:6px 2px;cursor:pointer;user-select:none}
+    .section.dragging{position:relative;z-index:30;opacity:.9;transform:scale(.992)}
+    .sectionHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding:6px 2px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
     .sectionTitle{font-size:19px;font-weight:800}
     .sectionMeta{display:flex;align-items:center;gap:8px}
     .count{font-size:12px;color:var(--muted);background:var(--panel);padding:4px 8px;border-radius:99px}
@@ -81,15 +82,6 @@
     .colorDot{width:31px;height:31px;border-radius:50%;border:3px solid transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);padding:0}
     .colorDot.selected{border-color:var(--text);transform:scale(1.06)}
     .catManage{font-size:13px;color:var(--muted);background:none;border:none;padding:0;margin-top:10px}
-    .sortHint{font-size:13px;color:var(--muted);margin:-4px 0 12px}
-    .sortList{display:flex;flex-direction:column;gap:8px}
-    .sortItem{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:10px 10px;user-select:none}
-    .sortHandle{font-size:22px;color:var(--muted);width:28px;text-align:center;cursor:grab;touch-action:none}
-    .sortName{flex:1;font-size:16px;font-weight:700}
-    .sortMove{border:none;background:var(--panel);color:var(--text);width:34px;height:34px;border-radius:10px}
-    .sortMove:disabled{opacity:.3}
-    .sortItem.dragging{opacity:.65;transform:scale(.99)}
-    .sortDropMarker{height:3px;border-radius:3px;background:var(--accent);margin:0 8px}
   </style>
 </head>
 <body>
@@ -143,16 +135,6 @@
       <button class="catManage" id="resetBtn">清除全部資料</button>
     </div>
   </dialog>
-  <dialog id="sortDialog">
-    <div class="dialogBody">
-      <div class="dialogTitle">調整分類順序</div>
-      <div class="sortHint">拖曳左側把手調整順序；也可以用右側箭頭微調。</div>
-      <div class="sortList" id="sortList"></div>
-      <div class="dialogActions">
-        <button class="primary" id="closeSort">完成</button>
-      </div>
-    </div>
-  </dialog>
 <script>
 const DEFAULT_CATEGORIES = ["回台南","高雄","研究","有空做","購物清單"];
 const DEFAULT_TASKS = [];
@@ -170,7 +152,6 @@ const taskInput = $("#taskInput");
 const categorySelect = $("#categorySelect");
 const editDialog = $("#editDialog");
 const settingsDialog = $("#settingsDialog");
-const sortDialog = $("#sortDialog");
 function save(){
   localStorage.setItem("todo_categories", JSON.stringify(categories));
   localStorage.setItem("todo_tasks", JSON.stringify(tasks));
@@ -213,71 +194,6 @@ function renderColorPalette(){
     };
     palette.appendChild(b);
   });
-}
-function renderSortList(){
-  const list = $("#sortList");
-  list.innerHTML = "";
-  categories.forEach((category, index) => {
-    const row = document.createElement("div");
-    row.className = "sortItem";
-    row.dataset.category = category;
-    row.innerHTML = `
-      <div class="sortHandle" aria-label="拖曳排序">☰</div>
-      <div class="sortName">${esc(category)}</div>
-      <button class="sortMove" data-dir="-1" ${index===0 ? "disabled" : ""} aria-label="往上">↑</button>
-      <button class="sortMove" data-dir="1" ${index===categories.length-1 ? "disabled" : ""} aria-label="往下">↓</button>`;
-
-    row.querySelectorAll(".sortMove").forEach(btn => {
-      btn.onclick = e => {
-        e.stopPropagation();
-        const dir = Number(btn.dataset.dir);
-        const from = categories.indexOf(category);
-        const to = from + dir;
-        if(to < 0 || to >= categories.length) return;
-        [categories[from], categories[to]] = [categories[to], categories[from]];
-        save();
-        renderSortList();
-        render();
-      };
-    });
-
-    const handle = row.querySelector(".sortHandle");
-    let dragging = false;
-    handle.addEventListener("pointerdown", e => {
-      e.preventDefault();
-      dragging = true;
-      row.classList.add("dragging");
-      handle.setPointerCapture?.(e.pointerId);
-    });
-    handle.addEventListener("pointermove", e => {
-      if(!dragging) return;
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest(".sortItem");
-      if(!target || target === row || target.parentElement !== list) return;
-      const from = categories.indexOf(category);
-      const targetCategory = target.dataset.category;
-      const to = categories.indexOf(targetCategory);
-      if(from === -1 || to === -1 || from === to) return;
-      categories.splice(from, 1);
-      categories.splice(to, 0, category);
-      save();
-      renderSortList();
-      render();
-    });
-    const endDrag = e => {
-      if(!dragging) return;
-      dragging = false;
-      row.classList.remove("dragging");
-      try { handle.releasePointerCapture?.(e.pointerId); } catch {}
-    };
-    handle.addEventListener("pointerup", endDrag);
-    handle.addEventListener("pointercancel", endDrag);
-
-    list.appendChild(row);
-  });
-}
-function openSortDialog(){
-  renderSortList();
-  sortDialog.showModal();
 }
 function setupSwipe(wrapper, taskEl, t){
   let startX = 0, startY = 0, dx = 0, horizontal = false, moved = false;
@@ -327,6 +243,7 @@ function render(){
     const section = document.createElement("section");
     const isCollapsed = collapsedCategories.has(category);
     section.className = "section" + (isCollapsed ? " collapsed" : "");
+    section.dataset.category = category;
     section.innerHTML = `
       <div class="sectionHead" role="button" tabindex="0" aria-expanded="${!isCollapsed}">
         <div class="sectionTitle">${esc(category)}</div>
@@ -345,24 +262,64 @@ function render(){
     };
     let longPressTimer = null;
     let longPressed = false;
-    const startLongPress = () => {
+    let dragActive = false;
+    let startTouchX = 0;
+    let startTouchY = 0;
+
+    const finishCategoryDrag = () => {
+      clearTimeout(longPressTimer);
+      if(dragActive){
+        dragActive = false;
+        section.classList.remove("dragging");
+        save();
+        render();
+      }
+    };
+
+    head.addEventListener("touchstart", e => {
+      if(e.touches.length !== 1) return;
       longPressed = false;
+      dragActive = false;
+      startTouchX = e.touches[0].clientX;
+      startTouchY = e.touches[0].clientY;
       clearTimeout(longPressTimer);
       longPressTimer = setTimeout(() => {
         longPressed = true;
+        dragActive = true;
+        section.classList.add("dragging");
         if(navigator.vibrate) navigator.vibrate(18);
-        openSortDialog();
-      }, 520);
-    };
-    const cancelLongPress = () => clearTimeout(longPressTimer);
+      }, 450);
+    }, {passive:true});
 
-    head.addEventListener("touchstart", startLongPress, {passive:true});
-    head.addEventListener("touchmove", cancelLongPress, {passive:true});
-    head.addEventListener("touchend", cancelLongPress);
-    head.addEventListener("touchcancel", cancelLongPress);
-    head.addEventListener("mousedown", startLongPress);
-    head.addEventListener("mouseup", cancelLongPress);
-    head.addEventListener("mouseleave", cancelLongPress);
+    head.addEventListener("touchmove", e => {
+      if(e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      if(!dragActive){
+        if(Math.abs(touch.clientX - startTouchX) > 10 || Math.abs(touch.clientY - startTouchY) > 10){
+          clearTimeout(longPressTimer);
+        }
+        return;
+      }
+
+      e.preventDefault();
+      const target = document.elementFromPoint(touch.clientX, touch.clientY)?.closest(".section");
+      if(!target || target === section || target.parentElement !== sections) return;
+
+      const targetCategory = target.dataset.category;
+      const from = categories.indexOf(category);
+      const to = categories.indexOf(targetCategory);
+      if(from === -1 || to === -1 || from === to) return;
+
+      categories.splice(from, 1);
+      categories.splice(to, 0, category);
+
+      const rect = target.getBoundingClientRect();
+      if(touch.clientY > rect.top + rect.height / 2) target.after(section);
+      else target.before(section);
+    }, {passive:false});
+
+    head.addEventListener("touchend", finishCategoryDrag);
+    head.addEventListener("touchcancel", finishCategoryDrag);
 
     head.onclick = () => {
       if(longPressed){
@@ -463,7 +420,6 @@ $("#deleteBtn").onclick = ()=>{
 };
 $("#settingsBtn").onclick = ()=>settingsDialog.showModal();
 $("#closeSettings").onclick = ()=>settingsDialog.close();
-$("#closeSort").onclick = ()=>sortDialog.close();
 $("#addCategoryBtn").onclick = ()=>{
   const name = $("#newCategory").value.trim();
   if(name && !categories.includes(name)){
