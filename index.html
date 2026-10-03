@@ -49,9 +49,10 @@
     .section.collapsed .tasks{display:none}
     .tasks{display:flex;flex-direction:column;gap:8px}
     .taskSwipe{position:relative;overflow:hidden;border-radius:16px;touch-action:pan-y}
-    .swipeAction{position:absolute;inset:0;display:flex;align-items:center;font-size:14px;font-weight:800;letter-spacing:.2px;pointer-events:none}
-    .swipeDone{justify-content:flex-start;padding-left:18px;background:#2e9d61;color:#fff}
-    .swipeDelete{justify-content:flex-end;padding-right:18px;background:#d94a4a;color:#fff}
+    .swipeAction{position:absolute;top:0;bottom:0;width:50%;display:flex;align-items:center;font-size:14px;font-weight:800;letter-spacing:.2px;pointer-events:none}
+    .swipeDone{left:0;justify-content:flex-start;padding-left:18px;background:#2e9d61;color:#fff}
+    .swipeRestore{left:0;justify-content:flex-start;padding-left:18px;background:#3f7edb;color:#fff}
+    .swipeDelete{right:0;justify-content:flex-end;padding-right:18px;background:#d94a4a;color:#fff}
     .task{position:relative;z-index:2;display:flex;align-items:center;gap:11px;background:color-mix(in srgb,var(--task-color,#7d8795) 13%,var(--panel));border:1px solid color-mix(in srgb,var(--task-color,#7d8795) 35%,var(--line));border-left:4px solid var(--task-color,#7d8795);border-radius:16px;padding:12px 12px;transition:transform .18s ease,opacity .18s ease}
     .task.swiping{transition:none}
     .check{width:26px;height:26px;border:2px solid color-mix(in srgb,var(--task-color,#7d8795) 75%,var(--muted));border-radius:50%;flex:0 0 auto;background:transparent;display:grid;place-items:center;color:var(--bg);font-weight:900}
@@ -221,7 +222,7 @@ function setupSwipe(wrapper, taskEl, t){
     setTimeout(() => delete wrapper.dataset.justSwiped, 250);
 
     if(dx >= threshold){
-      t.done = true;
+      t.done = !t.done;
       save();
       render();
     } else if(dx <= -threshold){
@@ -271,8 +272,10 @@ function render(){
       for(const t of list){
         const wrapper = document.createElement("div");
         wrapper.className = "taskSwipe";
+        const rightSwipeClass = t.done ? "swipeRestore" : "swipeDone";
+        const rightSwipeText = t.done ? "↩ 復原" : "✓ 完成";
         wrapper.innerHTML = `
-          <div class="swipeAction swipeDone">✓ 完成</div>
+          <div class="swipeAction ${rightSwipeClass}">${rightSwipeText}</div>
           <div class="swipeAction swipeDelete">刪除</div>
           <div class="task${t.done ? " done" : ""}" style="--task-color:${taskColor(t)}">
             <button class="check" aria-label="完成"></button>
