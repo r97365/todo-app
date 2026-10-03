@@ -39,7 +39,30 @@
     #addBtn{width:46px;border:none;border-radius:14px;background:var(--accent);color:var(--bg);font-size:24px;font-weight:700}
     .hint{font-size:12px;color:var(--muted);margin:9px 2px 1px}
     .section{margin:24px 0}
-    .section.dragging{position:relative;z-index:30;opacity:.9;transform:scale(.992)}
+    .section.dragging{
+      position:fixed!important;
+      z-index:1000;
+      margin:0!important;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:var(--panel);
+      box-shadow:0 20px 50px rgba(0,0,0,.35);
+      transform:scale(1.025);
+      opacity:.98;
+      pointer-events:none;
+      transition:transform .16s ease,box-shadow .16s ease;
+    }
+    .section.dragging .tasks{display:none!important}
+    .section.dragging .sectionHead{margin:0}
+    .sectionPlaceholder{
+      margin:24px 0;
+      border-radius:18px;
+      border:1px dashed color-mix(in srgb,var(--accent) 30%,var(--line));
+      background:color-mix(in srgb,var(--panel2) 80%,transparent);
+      opacity:.55;
+      transition:height .16s ease,transform .16s ease;
+    }
     .sectionHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding:6px 2px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
     .sectionTitle{font-size:19px;font-weight:800}
     .sectionMeta{display:flex;align-items:center;gap:8px}
@@ -81,7 +104,12 @@
     .colorPalette{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:15px}
     .colorDot{width:31px;height:31px;border-radius:50%;border:3px solid transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);padding:0}
     .colorDot.selected{border-color:var(--text);transform:scale(1.06)}
-    .catManage{font-size:13px;color:var(--muted);background:none;border:none;padding:0;margin-top:10px}
+    .categoryManageList{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
+    .categoryManageRow{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:9px 10px}
+    .categoryManageName{flex:1;min-width:0;font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .categoryRenameBtn,.categoryRenameSave,.categoryRenameCancel{border:none;background:var(--panel);color:var(--text);border-radius:10px;padding:8px 10px;font-size:13px}
+    .categoryRenameInput{flex:1!important;min-width:0;margin:0!important;padding:9px 10px!important}
+    .categorySectionLabel{font-size:13px;color:var(--muted);margin:2px 0 8px}
   </style>
 </head>
 <body>
@@ -126,13 +154,14 @@
   </dialog>
   <dialog id="settingsDialog">
     <div class="dialogBody">
-      <div class="dialogTitle">分類</div>
-      <input id="newCategory" placeholder="新增分類，例如：工作" />
+      <div class="dialogTitle">分類管理</div>
+      <div class="categoryManageList" id="categoryManageList"></div>
+      <div class="categorySectionLabel">新增分類</div>
+      <input id="newCategory" placeholder="例如：工作" />
       <div class="dialogActions">
         <button id="closeSettings">關閉</button>
         <button class="primary" id="addCategoryBtn">新增分類</button>
       </div>
-      <button class="catManage" id="resetBtn">清除全部資料</button>
     </div>
   </dialog>
 <script>
@@ -195,6 +224,72 @@ function renderColorPalette(){
     palette.appendChild(b);
   });
 }
+function renameCategory(oldName, newName){
+  newName = newName.trim();
+  if(!newName || newName === oldName) return false;
+  if(categories.includes(newName)){
+    alert("這個分類名稱已經存在。");
+    return false;
+  }
+
+  const index = categories.indexOf(oldName);
+  if(index === -1) return false;
+  categories[index] = newName;
+
+  tasks.forEach(t => {
+    if(t.category === oldName) t.category = newName;
+  });
+
+  if(selectedCategory === oldName) selectedCategory = newName;
+  if(collapsedCategories.has(oldName)){
+    collapsedCategories.delete(oldName);
+    collapsedCategories.add(newName);
+  }
+
+  save();
+  render();
+  return true;
+}
+
+function renderCategoryManager(){
+  const list = $("#categoryManageList");
+  list.innerHTML = "";
+
+  categories.forEach(category => {
+    const row = document.createElement("div");
+    row.className = "categoryManageRow";
+    row.innerHTML = `
+      <div class="categoryManageName">${esc(category)}</div>
+      <button class="categoryRenameBtn" type="button" aria-label="重新命名">✎ 改名</button>`;
+
+    row.querySelector(".categoryRenameBtn").onclick = () => {
+      row.innerHTML = `
+        <input class="categoryRenameInput" value="${esc(category)}" maxlength="40" />
+        <button class="categoryRenameCancel" type="button">取消</button>
+        <button class="categoryRenameSave" type="button">儲存</button>`;
+
+      const input = row.querySelector(".categoryRenameInput");
+      input.focus();
+      input.select();
+
+      const cancel = () => renderCategoryManager();
+      const commit = () => {
+        const changed = renameCategory(category, input.value);
+        if(changed) renderCategoryManager();
+      };
+
+      row.querySelector(".categoryRenameCancel").onclick = cancel;
+      row.querySelector(".categoryRenameSave").onclick = commit;
+      input.addEventListener("keydown", e => {
+        if(e.key === "Enter") commit();
+        if(e.key === "Escape") cancel();
+      });
+    };
+
+    list.appendChild(row);
+  });
+}
+
 function setupSwipe(wrapper, taskEl, t){
   let startX = 0, startY = 0, dx = 0, horizontal = false, moved = false;
   const threshold = 76;
@@ -265,15 +360,74 @@ function render(){
     let dragActive = false;
     let startTouchX = 0;
     let startTouchY = 0;
+    let dragOffsetY = 0;
+    let placeholder = null;
+
+    const beginCategoryDrag = () => {
+      longPressed = true;
+      dragActive = true;
+
+      const rect = section.getBoundingClientRect();
+      const fullHeight = section.offsetHeight;
+
+      placeholder = document.createElement("div");
+      placeholder.className = "sectionPlaceholder";
+      placeholder.style.height = fullHeight + "px";
+      section.before(placeholder);
+
+      section.classList.add("dragging");
+      section.style.left = rect.left + "px";
+      section.style.top = rect.top + "px";
+      section.style.width = rect.width + "px";
+      dragOffsetY = startTouchY - rect.top;
+
+      if(navigator.vibrate) navigator.vibrate(18);
+    };
+
+    const placePlaceholderAt = y => {
+      const candidates = [...sections.querySelectorAll(".section:not(.dragging)")];
+      let placed = false;
+
+      for(const target of candidates){
+        const rect = target.getBoundingClientRect();
+        if(y < rect.top + rect.height / 2){
+          target.before(placeholder);
+          placed = true;
+          break;
+        }
+      }
+      if(!placed) sections.appendChild(placeholder);
+    };
 
     const finishCategoryDrag = () => {
       clearTimeout(longPressTimer);
-      if(dragActive){
-        dragActive = false;
-        section.classList.remove("dragging");
-        save();
-        render();
+      if(!dragActive) return;
+
+      dragActive = false;
+
+      let next = placeholder?.nextElementSibling;
+      while(next && (!next.classList?.contains("section") || next === section)) next = next.nextElementSibling;
+
+      let prev = placeholder?.previousElementSibling;
+      while(prev && (!prev.classList?.contains("section") || prev === section)) prev = prev.previousElementSibling;
+
+      const nextCategory = next?.dataset?.category || null;
+      const prevCategory = prev?.dataset?.category || null;
+
+      categories = categories.filter(c => c !== category);
+      if(nextCategory && categories.includes(nextCategory)){
+        categories.splice(categories.indexOf(nextCategory), 0, category);
+      } else if(prevCategory && categories.includes(prevCategory)){
+        categories.splice(categories.indexOf(prevCategory) + 1, 0, category);
+      } else {
+        categories.push(category);
       }
+
+      placeholder?.remove();
+      section.classList.remove("dragging");
+      section.removeAttribute("style");
+      save();
+      render();
     };
 
     head.addEventListener("touchstart", e => {
@@ -283,17 +437,13 @@ function render(){
       startTouchX = e.touches[0].clientX;
       startTouchY = e.touches[0].clientY;
       clearTimeout(longPressTimer);
-      longPressTimer = setTimeout(() => {
-        longPressed = true;
-        dragActive = true;
-        section.classList.add("dragging");
-        if(navigator.vibrate) navigator.vibrate(18);
-      }, 450);
+      longPressTimer = setTimeout(beginCategoryDrag, 450);
     }, {passive:true});
 
     head.addEventListener("touchmove", e => {
       if(e.touches.length !== 1) return;
       const touch = e.touches[0];
+
       if(!dragActive){
         if(Math.abs(touch.clientX - startTouchX) > 10 || Math.abs(touch.clientY - startTouchY) > 10){
           clearTimeout(longPressTimer);
@@ -302,20 +452,11 @@ function render(){
       }
 
       e.preventDefault();
-      const target = document.elementFromPoint(touch.clientX, touch.clientY)?.closest(".section");
-      if(!target || target === section || target.parentElement !== sections) return;
+      section.style.top = (touch.clientY - dragOffsetY) + "px";
+      placePlaceholderAt(touch.clientY);
 
-      const targetCategory = target.dataset.category;
-      const from = categories.indexOf(category);
-      const to = categories.indexOf(targetCategory);
-      if(from === -1 || to === -1 || from === to) return;
-
-      categories.splice(from, 1);
-      categories.splice(to, 0, category);
-
-      const rect = target.getBoundingClientRect();
-      if(touch.clientY > rect.top + rect.height / 2) target.after(section);
-      else target.before(section);
+      if(touch.clientY < 85) window.scrollBy(0, -12);
+      else if(touch.clientY > window.innerHeight - 95) window.scrollBy(0, 12);
     }, {passive:false});
 
     head.addEventListener("touchend", finishCategoryDrag);
@@ -418,7 +559,10 @@ $("#deleteBtn").onclick = ()=>{
   tasks = tasks.filter(x=>x.id!==editingId);
   save(); render(); editDialog.close();
 };
-$("#settingsBtn").onclick = ()=>settingsDialog.showModal();
+$("#settingsBtn").onclick = ()=>{
+  renderCategoryManager();
+  settingsDialog.showModal();
+};
 $("#closeSettings").onclick = ()=>settingsDialog.close();
 $("#addCategoryBtn").onclick = ()=>{
   const name = $("#newCategory").value.trim();
@@ -428,15 +572,8 @@ $("#addCategoryBtn").onclick = ()=>{
     save();
     render();
     settingsDialog.close();
-  }
-};
-$("#resetBtn").onclick = ()=>{
-  if(confirm("要清除全部待辦並恢復預設分類嗎？這個動作無法復原。")){
-    categories = DEFAULT_CATEGORIES.slice();
-    tasks = [];
-    selectedCategory = categories[0] || "";
-    collapsedCategories = new Set();
-    save(); render(); settingsDialog.close();
+  } else if(name && categories.includes(name)){
+    alert("這個分類名稱已經存在。");
   }
 };
 $("#dateText").textContent = new Intl.DateTimeFormat("zh-TW",{year:"numeric",month:"long",day:"numeric",weekday:"short"}).format(new Date());
