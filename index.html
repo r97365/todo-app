@@ -510,7 +510,7 @@ function render(){
           <div class="swipeAction ${rightSwipeClass}">${rightSwipeText}</div>
           <div class="swipeAction swipeDelete">刪除</div>
           <div class="task${t.done ? " done" : ""}" style="--task-color:${taskColor(t)}">
-            <button class="check" aria-label="完成"></button>
+            <div class="check" aria-hidden="true"></div>
             <div class="taskText">${esc(t.text)}</div>
             <button class="more" aria-label="編輯">•••</button>
           </div>`;
@@ -518,7 +518,6 @@ function render(){
         el.onselectstart = () => false;
         el.oncontextmenu = e => e.preventDefault();
         el.ondragstart = e => e.preventDefault();
-        el.querySelector(".check").onclick = e => { e.stopPropagation(); t.done = !t.done; save(); render(); };
         el.querySelector(".taskText").onclick = e => e.stopPropagation();
         el.querySelector(".more").onclick = e => {
           e.stopPropagation();
