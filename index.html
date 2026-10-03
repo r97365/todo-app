@@ -354,7 +354,11 @@ $("#closeSettings").onclick = ()=>settingsDialog.close();
 $("#addCategoryBtn").onclick = ()=>{
   const name = $("#newCategory").value.trim();
   if(name && !categories.includes(name)){
-    categories.push(name); $("#newCategory").value=""; save(); render();
+    categories.push(name);
+    $("#newCategory").value="";
+    save();
+    render();
+    settingsDialog.close();
   }
 };
 $("#resetBtn").onclick = ()=>{
