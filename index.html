@@ -48,8 +48,13 @@
     .section.collapsed .sectionHead{margin-bottom:0}
     .section.collapsed .tasks{display:none}
     .tasks{display:flex;flex-direction:column;gap:8px}
-    .task{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 12px}
-    .check{width:26px;height:26px;border:2px solid var(--muted);border-radius:50%;flex:0 0 auto;background:transparent;display:grid;place-items:center;color:var(--bg);font-weight:900}
+    .taskSwipe{position:relative;overflow:hidden;border-radius:16px;touch-action:pan-y}
+    .swipeAction{position:absolute;inset:0;display:flex;align-items:center;font-size:14px;font-weight:800;letter-spacing:.2px;pointer-events:none}
+    .swipeDone{justify-content:flex-start;padding-left:18px;background:#2e9d61;color:#fff}
+    .swipeDelete{justify-content:flex-end;padding-right:18px;background:#d94a4a;color:#fff}
+    .task{position:relative;z-index:2;display:flex;align-items:center;gap:11px;background:color-mix(in srgb,var(--task-color,#7d8795) 13%,var(--panel));border:1px solid color-mix(in srgb,var(--task-color,#7d8795) 35%,var(--line));border-left:4px solid var(--task-color,#7d8795);border-radius:16px;padding:12px 12px;transition:transform .18s ease,opacity .18s ease}
+    .task.swiping{transition:none}
+    .check{width:26px;height:26px;border:2px solid color-mix(in srgb,var(--task-color,#7d8795) 75%,var(--muted));border-radius:50%;flex:0 0 auto;background:transparent;display:grid;place-items:center;color:var(--bg);font-weight:900}
     .task.done .check{background:var(--accent);border-color:var(--accent)}
     .task.done .check::after{content:"✓";font-size:16px}
     .taskText{flex:1;font-size:17px;line-height:1.35;word-break:break-word}
@@ -70,6 +75,10 @@
     .dialogActions button{flex:1;border:none;padding:12px;border-radius:13px;background:var(--panel2);color:var(--text)}
     .dialogActions .primary{background:var(--accent);color:var(--bg);font-weight:700}
     .danger{color:var(--danger)!important}
+    .colorLabel{font-size:13px;color:var(--muted);margin:4px 0 9px}
+    .colorPalette{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:15px}
+    .colorDot{width:31px;height:31px;border-radius:50%;border:3px solid transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);padding:0}
+    .colorDot.selected{border-color:var(--text);transform:scale(1.06)}
     .catManage{font-size:13px;color:var(--muted);background:none;border:none;padding:0;margin-top:10px}
   </style>
 </head>
@@ -104,6 +113,8 @@
       <div class="dialogTitle">編輯待辦</div>
       <input id="editText" />
       <select id="editCategory"></select>
+      <div class="colorLabel">顏色</div>
+      <div class="colorPalette" id="editColorPalette"></div>
       <div class="dialogActions">
         <button class="danger" id="deleteBtn">刪除</button>
         <button id="cancelBtn">取消</button>
@@ -125,10 +136,12 @@
 <script>
 const DEFAULT_CATEGORIES = ["回台南","高雄","研究","有空做","購物清單"];
 const DEFAULT_TASKS = [];
+const TASK_COLORS = ["#7d8795","#4f8cff","#35b86b","#e5b93f","#ee8a3b","#e45b5b","#9b6bea","#d864a3"];
 let categories = JSON.parse(localStorage.getItem("todo_categories") || "null") || DEFAULT_CATEGORIES.slice();
 let tasks = JSON.parse(localStorage.getItem("todo_tasks") || "null") || DEFAULT_TASKS.slice();
 let filter = "open";
 let editingId = null;
+let editingColor = TASK_COLORS[0];
 let selectedCategory = localStorage.getItem("todo_selected_category") || categories[0] || "";
 let collapsedCategories = new Set(JSON.parse(localStorage.getItem("todo_collapsed_categories") || "[]"));
 const $ = s => document.querySelector(s);
@@ -160,6 +173,64 @@ function visible(t){
   if(filter==="open") return !t.done;
   if(filter==="done") return t.done;
   return true;
+}
+function taskColor(t){
+  return TASK_COLORS.includes(t.color) ? t.color : TASK_COLORS[0];
+}
+function renderColorPalette(){
+  const palette = $("#editColorPalette");
+  palette.innerHTML = "";
+  TASK_COLORS.forEach(color => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "colorDot" + (editingColor === color ? " selected" : "");
+    b.style.background = color;
+    b.setAttribute("aria-label", "選擇顏色");
+    b.onclick = () => {
+      editingColor = color;
+      renderColorPalette();
+    };
+    palette.appendChild(b);
+  });
+}
+function setupSwipe(wrapper, taskEl, t){
+  let startX = 0, startY = 0, dx = 0, horizontal = false, moved = false;
+  const threshold = 76;
+  wrapper.addEventListener("touchstart", e => {
+    if(e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dx = 0; horizontal = false; moved = false;
+    taskEl.classList.add("swiping");
+  }, {passive:true});
+  wrapper.addEventListener("touchmove", e => {
+    if(e.touches.length !== 1) return;
+    const x = e.touches[0].clientX - startX;
+    const y = e.touches[0].clientY - startY;
+    if(!horizontal && Math.abs(x) > 8 && Math.abs(x) > Math.abs(y) * 1.15) horizontal = true;
+    if(!horizontal) return;
+    e.preventDefault();
+    dx = Math.max(-125, Math.min(125, x));
+    moved = moved || Math.abs(dx) > 12;
+    taskEl.style.transform = `translateX(${dx}px)`;
+  }, {passive:false});
+  wrapper.addEventListener("touchend", () => {
+    taskEl.classList.remove("swiping");
+    taskEl.style.transform = "";
+    if(moved) wrapper.dataset.justSwiped = "1";
+    setTimeout(() => delete wrapper.dataset.justSwiped, 250);
+
+    if(dx >= threshold){
+      t.done = true;
+      save();
+      render();
+    } else if(dx <= -threshold){
+      tasks = tasks.filter(x => x.id !== t.id);
+      save();
+      render();
+    }
+    dx = 0;
+  });
 }
 function render(){
   fillCategories();
@@ -198,16 +269,29 @@ function render(){
       holder.innerHTML = `<div class="empty">目前沒有項目</div>`;
     } else {
       for(const t of list){
-        const el = document.createElement("div");
-        el.className = "task" + (t.done ? " done" : "");
-        el.innerHTML = `
-          <button class="check" aria-label="完成"></button>
-          <div class="taskText">${esc(t.text)}</div>
-          <button class="more" aria-label="編輯">•••</button>`;
-        el.querySelector(".check").onclick = () => { t.done = !t.done; save(); render(); };
-        el.querySelector(".taskText").onclick = () => openEdit(t.id);
-        el.querySelector(".more").onclick = () => openEdit(t.id);
-        holder.appendChild(el);
+        const wrapper = document.createElement("div");
+        wrapper.className = "taskSwipe";
+        wrapper.innerHTML = `
+          <div class="swipeAction swipeDone">✓ 完成</div>
+          <div class="swipeAction swipeDelete">刪除</div>
+          <div class="task${t.done ? " done" : ""}" style="--task-color:${taskColor(t)}">
+            <button class="check" aria-label="完成"></button>
+            <div class="taskText">${esc(t.text)}</div>
+            <button class="more" aria-label="編輯">•••</button>
+          </div>`;
+        const el = wrapper.querySelector(".task");
+        el.querySelector(".check").onclick = e => { e.stopPropagation(); t.done = !t.done; save(); render(); };
+        el.querySelector(".taskText").onclick = () => {
+          if(wrapper.dataset.justSwiped) return;
+          openEdit(t.id);
+        };
+        el.querySelector(".more").onclick = e => {
+          e.stopPropagation();
+          if(wrapper.dataset.justSwiped) return;
+          openEdit(t.id);
+        };
+        setupSwipe(wrapper, el, t);
+        holder.appendChild(wrapper);
       }
     }
     sections.appendChild(section);
@@ -221,7 +305,7 @@ function addTask(){
   if(!text) return;
   const category = categorySelect.value || selectedCategory || categories[0];
   selectedCategory = category;
-  tasks.push({id: crypto.randomUUID(), text, category, done:false, created:Date.now()});
+  tasks.push({id: crypto.randomUUID(), text, category, color:TASK_COLORS[0], done:false, created:Date.now()});
   taskInput.value = "";
   save(); render(); taskInput.focus();
 }
@@ -231,6 +315,8 @@ function openEdit(id){
   if(!t) return;
   $("#editText").value = t.text;
   $("#editCategory").value = t.category;
+  editingColor = taskColor(t);
+  renderColorPalette();
   editDialog.showModal();
 }
 $("#addBtn").onclick = addTask;
@@ -253,6 +339,7 @@ $("#saveBtn").onclick = ()=>{
   const txt = $("#editText").value.trim();
   if(txt) t.text = txt;
   t.category = $("#editCategory").value;
+  t.color = editingColor;
   save(); render(); editDialog.close();
 };
 $("#deleteBtn").onclick = ()=>{
