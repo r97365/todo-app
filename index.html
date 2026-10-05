@@ -24,6 +24,8 @@
       }
     }
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body,body *{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    input,textarea,[contenteditable="true"]{user-select:text!important;-webkit-user-select:text!important;-webkit-touch-callout:default!important}
     html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC","Noto Sans TC",sans-serif}
     body{min-height:100vh}
     button,input,select{font:inherit}
@@ -80,6 +82,7 @@
     .section.collapsed .sectionHead{margin-bottom:0}
     .section.collapsed .tasks{display:none}
     .tasks{display:flex;flex-direction:column;gap:8px}
+    .looseTasks{margin:4px 0 24px}
     .taskSwipe{position:relative;overflow:hidden;border-radius:16px;touch-action:pan-y}
     .swipeAction{position:absolute;top:0;bottom:0;width:50%;display:flex;align-items:center;font-size:14px;font-weight:800;letter-spacing:.2px;pointer-events:none}
     .swipeDone{left:0;justify-content:flex-start;padding-left:18px;background:#2e9d61;color:#fff}
@@ -210,7 +213,7 @@
     </div>
   </dialog>
 <script>
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 const DEFAULT_CATEGORIES = ["回台南","高雄","研究","有空做","購物清單"];
 const DEFAULT_TASKS = [];
 const TASK_COLORS = ["#7d8795","#4f8cff","#35b86b","#e5b93f","#ee8a3b","#e45b5b","#9b6bea","#d864a3"];
@@ -219,7 +222,8 @@ let tasks = JSON.parse(localStorage.getItem("todo_tasks") || "null") || DEFAULT_
 let filter = "open";
 let editingId = null;
 let editingColor = TASK_COLORS[0];
-let selectedCategory = localStorage.getItem("todo_selected_category") || categories[0] || "";
+let selectedCategory = localStorage.getItem("todo_selected_category");
+if(selectedCategory === null) selectedCategory = "";
 let collapsedCategories = new Set(JSON.parse(localStorage.getItem("todo_collapsed_categories") || "[]"));
 const $ = s => document.querySelector(s);
 const sections = $("#sections");
@@ -239,12 +243,12 @@ function esc(s){
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 }
 function fillCategories(){
-  const opts = categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  const opts = `<option value="">無分類</option>` + categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
   categorySelect.innerHTML = opts;
   $("#editCategory").innerHTML = opts;
 
-  if(!categories.includes(selectedCategory)){
-    selectedCategory = categories[0] || "";
+  if(selectedCategory !== "" && !categories.includes(selectedCategory)){
+    selectedCategory = "";
   }
   categorySelect.value = selectedCategory;
 }
@@ -290,7 +294,7 @@ function scheduleNextOccurrence(t){
   const next = nextOccurrenceTime(t);
   if(!next) return;
   tasks.push({
-    id:crypto.randomUUID(), text:t.text, category:t.category, color:taskColor(t),
+    id:crypto.randomUUID(), text:t.text, category:t.category || "", color:taskColor(t),
     repeatType:t.repeatType, repeatDays:t.repeatDays || null,
     done:false, created:Date.now(), availableAt:next, generatedFrom:t.id
   });
@@ -427,9 +431,45 @@ function setupSwipe(wrapper, taskEl, t){
     dx = 0;
   });
 }
+function appendTaskCard(holder, t){
+  const wrapper = document.createElement("div");
+  wrapper.className = "taskSwipe";
+  const rightSwipeClass = t.done ? "swipeRestore" : "swipeDone";
+  const rightSwipeText = t.done ? "↩ 復原" : "✓ 完成";
+  wrapper.innerHTML = `
+    <div class="swipeAction ${rightSwipeClass}">${rightSwipeText}</div>
+    <div class="swipeAction swipeDelete">刪除</div>
+    <div class="task${t.done ? " done" : ""}" style="--task-color:${taskColor(t)}">
+      <div class="check" aria-hidden="true"></div>
+      <div class="taskMain">
+        <div class="taskText">${esc(t.text)}</div>
+        ${repeatText(t) ? `<div class="taskMeta">${repeatText(t)}</div>` : ""}
+      </div>
+      <button class="more" aria-label="編輯">•••</button>
+    </div>`;
+  const el = wrapper.querySelector(".task");
+  el.onselectstart = () => false;
+  el.oncontextmenu = e => e.preventDefault();
+  el.ondragstart = e => e.preventDefault();
+  el.querySelector(".taskText").onclick = e => e.stopPropagation();
+  el.querySelector(".more").onclick = e => {
+    e.stopPropagation();
+    if(wrapper.dataset.justSwiped) return;
+    openEdit(t.id);
+  };
+  setupSwipe(wrapper, el, t);
+  holder.appendChild(wrapper);
+}
 function render(){
   fillCategories();
   sections.innerHTML = "";
+  const looseList = tasks.filter(t=>(!t.category) && visible(t)).sort((a,b)=>a.created-b.created);
+  if(looseList.length){
+    const looseHolder = document.createElement("div");
+    looseHolder.className = "tasks looseTasks";
+    looseList.forEach(t => appendTaskCard(looseHolder, t));
+    sections.appendChild(looseHolder);
+  }
   for(const category of categories){
     const list = tasks.filter(t=>t.category===category && visible(t)).sort((a,b)=>a.created-b.created);
     if(list.length===0 && filter!=="all") continue;
@@ -587,35 +627,7 @@ function render(){
     if(list.length===0){
       holder.innerHTML = `<div class="empty">目前沒有項目</div>`;
     } else {
-      for(const t of list){
-        const wrapper = document.createElement("div");
-        wrapper.className = "taskSwipe";
-        const rightSwipeClass = t.done ? "swipeRestore" : "swipeDone";
-        const rightSwipeText = t.done ? "↩ 復原" : "✓ 完成";
-        wrapper.innerHTML = `
-          <div class="swipeAction ${rightSwipeClass}">${rightSwipeText}</div>
-          <div class="swipeAction swipeDelete">刪除</div>
-          <div class="task${t.done ? " done" : ""}" style="--task-color:${taskColor(t)}">
-            <div class="check" aria-hidden="true"></div>
-            <div class="taskMain">
-              <div class="taskText">${esc(t.text)}</div>
-              ${repeatText(t) ? `<div class="taskMeta">${repeatText(t)}</div>` : ""}
-            </div>
-            <button class="more" aria-label="編輯">•••</button>
-          </div>`;
-        const el = wrapper.querySelector(".task");
-        el.onselectstart = () => false;
-        el.oncontextmenu = e => e.preventDefault();
-        el.ondragstart = e => e.preventDefault();
-        el.querySelector(".taskText").onclick = e => e.stopPropagation();
-        el.querySelector(".more").onclick = e => {
-          e.stopPropagation();
-          if(wrapper.dataset.justSwiped) return;
-          openEdit(t.id);
-        };
-        setupSwipe(wrapper, el, t);
-        holder.appendChild(wrapper);
-      }
+      list.forEach(t => appendTaskCard(holder, t));
     }
     sections.appendChild(section);
   }
@@ -626,7 +638,7 @@ function render(){
 function addTask(){
   const text = taskInput.value.trim();
   if(!text) return;
-  const category = categorySelect.value || selectedCategory || categories[0];
+  const category = categorySelect.value;
   selectedCategory = category;
   const repeatType = repeatSelect.value;
   const repeatEveryDays = repeatType==="days" ? Math.max(1, Number(repeatDays.value)||1) : null;
@@ -642,7 +654,7 @@ function openEdit(id){
   const t = tasks.find(x=>x.id===id);
   if(!t) return;
   $("#editText").value = t.text;
-  $("#editCategory").value = t.category;
+  $("#editCategory").value = t.category || "";
   $("#editRepeat").value = t.repeatType || "none";
   $("#editRepeatDays").value = Math.max(1, Number(t.repeatDays)||7);
   $("#editRepeatDays").hidden = $("#editRepeat").value !== "days";
