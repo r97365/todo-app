@@ -125,6 +125,7 @@
     .categoryRenameBtn svg{width:18px;height:18px;display:block}
     .categoryRenameInput{flex:1!important;min-width:0;margin:0!important;padding:9px 10px!important}
     .categorySectionLabel{font-size:13px;color:var(--muted);margin:2px 0 8px}
+    .appVersion{margin-top:18px;text-align:center;font-size:12px;color:var(--muted);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
   </style>
 </head>
 <body>
@@ -177,9 +178,11 @@
         <button id="closeSettings">關閉</button>
         <button class="primary" id="addCategoryBtn">新增分類</button>
       </div>
+      <div class="appVersion" id="appVersion"></div>
     </div>
   </dialog>
 <script>
+const APP_VERSION = "1.0.0";
 const DEFAULT_CATEGORIES = ["回台南","高雄","研究","有空做","購物清單"];
 const DEFAULT_TASKS = [];
 const TASK_COLORS = ["#7d8795","#4f8cff","#35b86b","#e5b93f","#ee8a3b","#e45b5b","#9b6bea","#d864a3"];
@@ -613,6 +616,7 @@ $("#addCategoryBtn").onclick = ()=>{
   }
 };
 $("#dateText").textContent = new Intl.DateTimeFormat("zh-TW",{year:"numeric",month:"long",day:"numeric",weekday:"short"}).format(new Date());
+$("#appVersion").textContent = "版本 v" + APP_VERSION;
 render();
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
